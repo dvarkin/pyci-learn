@@ -6,24 +6,60 @@ on:
   pull_request:
   workflow_dispatch:
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  test:
+  lint:
+    name: Ruff (Python 3.10)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.10.5"
+          enable-cache: true
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.10"
 
-      - name: Install dependencies
-        run: uv sync --dev
+      - name: Sync dependencies (locked)
+        run: uv sync --group dev --frozen
+
+      - name: Ruff lint
+        run: uv run --frozen ruff check .
+
+  test:
+    name: Pytest (Python 3.10)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: lint
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.10.5"
+          enable-cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.10"
+
+      - name: Sync dependencies (locked)
+        run: uv sync --group dev --frozen
 
       - name: Run tests
-        run: uv run pytest -q
+        run: uv run --frozen pytest
